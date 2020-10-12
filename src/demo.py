@@ -21,21 +21,7 @@ from collections import Counter
 #          for file in sorted_file if file.endswith(".dcm")]
 #     return f
 
-def load_scans(dcm_path):
-    slices = [pydicom.read_file(dcm_path + '/' + s)
-              for s in os.listdir(dcm_path) if s.endswith(".dcm")]
-    slices.sort(key=lambda x: float(x.ImagePositionPatient[2]))
-    try:
-        slice_thickness = np.abs(
-            slices[0].ImagePositionPatient[2] - slices[1].ImagePositionPatient[2])
-    except:
-        slice_thickness = np.abs(
-            slices[0].SliceLocation - slices[1].SliceLocation)
 
-    for s in slices:
-        s.SliceThickness = slice_thickness
-
-    return slices
 
 
 def plot_HU_range(scans, name):
@@ -174,11 +160,12 @@ def dicom_data(patient_path):
     kvp = []
 
     for i in im_path:
-        ids.append(i.split('/')[0]+'_'+i.split('/')[1])
         example_dcm = os.listdir(patient_path + i + "/")[0]
-        id_pth.append(patient_path + i)
         dataset = pydicom.dcmread(patient_path + i + "/" + example_dcm)
-
+        if dataset.Modality != 'CT':
+            continue
+        ids.append(i.split('/')[0]+'_'+i.split('/')[1])
+        id_pth.append(patient_path + i)
         window_widths.append(get_window_value(dataset.WindowWidth))
         window_levels.append(get_window_value(dataset.WindowCenter))
 
@@ -212,57 +199,3 @@ def dicom_data(patient_path):
     return scan_properties
 
 
-def load_patients(dataset_path):
-    """Return patients name list like: LIDC-IDRI-XXXX
-    """
-    patients = os.listdir(dataset_path)
-    return sorted(patients)
-
-
-def series_modality(series_path):
-    """Return modality type of series
-    """
-    slice_demo = osp.join(series_path, os.listdir(series_path)[0])
-    slice_info = load_scan(slice_demo)
-    return slice_info['Modality'].value
-
-
-def modality_filter():
-    """Filt out other modality except for CT
-    """
-    pass
-
-
-def count_files(path):
-    """Count files under the path of folder
-    """
-    file_num = 0
-    for root, dirs, files in os.walk(path):
-        file_num += len(files)
-    return file_num
-
-
-def check_study(patients_path):
-    studies = dict()
-    types = dict()
-    dup = dict()
-    for p in patients_path:
-        for study in os.listdir(p):
-            study_path = osp.join(patients_path, study)
-            for series in os.listdir(study_path):
-                pass
-                # studies[osp.basename(p)] = study[:10] + study[-6:]
-                # if study[10:-6] != '':
-                #     types[osp.basename(p)] = study[10:-6]
-                # assert study[:10] == '01-01-2000'
-                # if study[:10] + study[-6:] in ['01-01-2000-34723', '01-01-2000-58320', '01-01-2000-27983', '01-01-2000-79315', '01-01-2000-35412', '01-01-2000-82159', '01-01-2000-11943']:
-                #     dup[osp.basename(p)] = study
-    print(studies)
-
-
-if __name__ == "__main__":
-    INPUT_FOLDER = 'data/LIDC/LIDC-IDRI'
-    patients = load_patients(INPUT_FOLDER)
-    patients_path = [osp.join(INPUT_FOLDER, patient) for patient in patients]
-    check_study(patients_path)
-    # load_scan()
