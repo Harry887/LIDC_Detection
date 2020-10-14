@@ -19,6 +19,55 @@ def load_patients(dataset_path):
     return sorted(patients)
 
 
+def load_scans(dcm_path):
+    """
+    Load DICOM files sorting by the actual image position in the scan
+
+    Args:
+        dcm_path: The path contains DICOM files such as Series
+
+    Return:
+        slices: The list of dicom slices
+    """
+    slices = [pydicom.read_file(dcm_path + '/' + s)
+              for s in os.listdir(dcm_path) if s.endswith(".dcm")]
+    slices.sort(key=lambda x: float(x.ImagePositionPatient[2]))
+    try:
+        slice_thickness = np.abs(
+            slices[0].ImagePositionPatient[2] - slices[1].ImagePositionPatient[2])
+    except:
+        slice_thickness = np.abs(
+            slices[0].SliceLocation - slices[1].SliceLocation)
+
+    for s in slices:
+        s.SliceThickness = slice_thickness
+
+    return slices
+
+
+def get_window_value(feature):
+    if type(feature) == pydicom.multival.MultiValue:
+        return np.int(feature[0])
+    else:
+        return np.int(feature)
+
+
+def get_dicom_info(slice):
+    slice_info = dict()
+    slice_info["rows"] = slice.Rows
+    slice_info["column"] = slice.Columns
+    slice_info["window_width"] = get_window_value(slice.WindowWidth)
+    slice_info["window_level"] = get_window_value(slice.WindowCenter)
+    slice_info["intercept"] = slice.RescaleIntercept
+    slice_info["slope"] = slice.RescaleSlope
+    slice_info["pixelspacing_r"] = slice.PixelSpacing[0]
+    slice_info["pixelspacing_c"] = slice.PixelSpacing[1]
+    slice_info["slice_thicknesses"] = slice.SliceThickness
+    slice_info["modality"] = slice.Modality
+    slice_info["kvp"] = slice.KVP
+    return slice_info
+
+
 def series_modality(series_path):
     """Return modality type of series
     """
@@ -28,12 +77,6 @@ def series_modality(series_path):
         return dcm.Modality
     else:
         return None
-
-
-# def modality_filter(series_path):
-#     """Filt out other modality except for CT
-#     """
-#     dcm_path = osp.join(series_path, os.listdir(series_path)[0])
 
 
 def record_CT(dataset_path):
@@ -59,7 +102,7 @@ def record_CT(dataset_path):
 
 
 def count_files(path):
-    """Count files under the path of folder
+    """Count total files under the path of folder
     """
     file_num = 0
     for root, dirs, files in os.walk(path):
@@ -120,12 +163,3 @@ def get_CT_series(dataset_path):
                     CT_series.append(serie_path)
                 total_series += 1
     return CT_series, total_series
-
-
-if __name__ == "__main__":
-    INPUT_FOLDER = 'data/LIDC/LIDC-IDRI'
-    # patients = load_patients(INPUT_FOLDER)
-    # patients_path = [osp.join(INPUT_FOLDER, patient) for patient in patients]
-    # check_study(patients_path)
-    patients_dict = record_CT(INPUT_FOLDER)
-    print(patients_dict)
